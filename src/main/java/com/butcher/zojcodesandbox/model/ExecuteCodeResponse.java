@@ -11,21 +11,26 @@ import java.util.List;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class ExcuteCodeRequest {
+public class ExecuteCodeResponse {
 
     /**
-     * 输入用例
+     * 输出用例
      */
-    private List<String> inputList;
+    private List<String> outputList;
 
     /**
-     * 代码
+     * 执行信息
      */
-    private String code;
+    private String message;
 
     /**
-     * 语言
+     * 执行状态
      */
-    private String language;
+    private String status;
+
+    /**
+     * 判题信息
+     */
+    private JudgeInfo judgeInfo;
 
 }

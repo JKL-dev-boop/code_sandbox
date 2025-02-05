@@ -5,11 +5,10 @@ import cn.hutool.core.io.resource.ResourceUtil;
 import cn.hutool.core.lang.UUID;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.dfa.WordTree;
-import com.butcher.zojcodesandbox.model.ExcuteCodeRequest;
-import com.butcher.zojcodesandbox.model.ExcuteCodeResponse;
+import com.butcher.zojcodesandbox.model.ExecuteCodeRequest;
+import com.butcher.zojcodesandbox.model.ExecuteCodeResponse;
 import com.butcher.zojcodesandbox.model.ExecuteMessage;
 import com.butcher.zojcodesandbox.model.JudgeInfo;
-import com.butcher.zojcodesandbox.security.DenySecurityManager;
 import com.butcher.zojcodesandbox.utils.ProcessUtils;
 
 import java.io.File;
@@ -37,38 +36,38 @@ public class JavaNativeCodeSandbox implements CodeSandbox {
 
     public static void main(String[] args) {
         JavaNativeCodeSandbox codeSandbox = new JavaNativeCodeSandbox();
-        ExcuteCodeRequest excuteCodeRequest = new ExcuteCodeRequest();
-        excuteCodeRequest.setInputList(Arrays.asList("1 2", "3 4"));
+        ExecuteCodeRequest executeCodeRequest = new ExecuteCodeRequest();
+        executeCodeRequest.setInputList(Arrays.asList("1 2", "3 4"));
         String codeStr = ResourceUtil.readStr("testCode/simpleComputeArgs/Main.java", StandardCharsets.UTF_8);
-        excuteCodeRequest.setCode(codeStr);
-        excuteCodeRequest.setLanguage("java");
-        ExcuteCodeResponse excuteCodeResponse = codeSandbox.excuteCode(excuteCodeRequest);
-        System.out.println(excuteCodeResponse);
+        executeCodeRequest.setCode(codeStr);
+        executeCodeRequest.setLanguage("java");
+        ExecuteCodeResponse executeCodeResponse = codeSandbox.executeCode(executeCodeRequest);
+        System.out.println(executeCodeResponse);
     }
 
     /**
      * 执行代码
      *
-     * @param excuteCodeRequest
+     * @param executeCodeRequest
      * @return
      */
     @Override
-    public ExcuteCodeResponse excuteCode(ExcuteCodeRequest excuteCodeRequest) {
-        List<String> inputList = excuteCodeRequest.getInputList();
-        String code = excuteCodeRequest.getCode();
+    public ExecuteCodeResponse executeCode(ExecuteCodeRequest executeCodeRequest) {
+        List<String> inputList = executeCodeRequest.getInputList();
+        String code = executeCodeRequest.getCode();
         // 代码校验，识别是否有黑名单代码
         WordTree tree = new WordTree();
         tree.addWords(BLACK_WORD_LIST);
         if (tree.isMatch(code)) {
-            ExcuteCodeResponse excuteCodeResponse = new ExcuteCodeResponse();
-            excuteCodeResponse.setStatus("4");
-            excuteCodeResponse.setMessage("代码中包含黑名单关键字");
-            excuteCodeResponse.setOutputList(new ArrayList<>());
-            excuteCodeResponse.setJudgeInfo(new JudgeInfo());
-            return excuteCodeResponse;
+            ExecuteCodeResponse executeCodeResponse = new ExecuteCodeResponse();
+            executeCodeResponse.setStatus("4");
+            executeCodeResponse.setMessage("代码中包含黑名单关键字");
+            executeCodeResponse.setOutputList(new ArrayList<>());
+            executeCodeResponse.setJudgeInfo(new JudgeInfo());
+            return executeCodeResponse;
         }
 
-        String language = excuteCodeRequest.getLanguage();
+        String language = executeCodeRequest.getLanguage();
 
         String userDir = System.getProperty("user.dir");
         String globalCodePath = userDir + File.separator + "tmpCode";
@@ -119,17 +118,17 @@ public class JavaNativeCodeSandbox implements CodeSandbox {
             }
         }
         // 整理获取输出结果
-        ExcuteCodeResponse excuteCodeResponse = new ExcuteCodeResponse();
+        ExecuteCodeResponse executeCodeResponse = new ExecuteCodeResponse();
         List<String> outputList = new ArrayList<>();
         // 默认成功
-        excuteCodeResponse.setStatus("1");
+        executeCodeResponse.setStatus("1");
         Long maxTime = 0L;
         for (ExecuteMessage executeMessage : executeMessagesList) {
             String errorMessage = executeMessage.getErrorMessage();
             if (StrUtil.isNotBlank(errorMessage)) {
-                excuteCodeResponse.setMessage(errorMessage);
+                executeCodeResponse.setMessage(errorMessage);
                 //执行中存在错误
-                excuteCodeResponse.setStatus("3");
+                executeCodeResponse.setStatus("3");
                 break;
             }
             outputList.add(executeMessage.getMessage());
@@ -137,12 +136,12 @@ public class JavaNativeCodeSandbox implements CodeSandbox {
                 maxTime = executeMessage.getTime();
             }
         }
-        excuteCodeResponse.setOutputList(outputList);
+        executeCodeResponse.setOutputList(outputList);
         JudgeInfo judgeInfo = new JudgeInfo();
         // 需要借助第三方库实现，非常麻烦暂时不作实现
         // judgeInfo.setMemory();
         judgeInfo.setTime(maxTime);
-        excuteCodeResponse.setJudgeInfo(judgeInfo);
+        executeCodeResponse.setJudgeInfo(judgeInfo);
 
         // 删除用户代码 防止服务器空间不足
         if (FileUtil.exist(userCodeParentPath)) {
@@ -151,23 +150,23 @@ public class JavaNativeCodeSandbox implements CodeSandbox {
         }
 
         // 错误处理 提升程序健壮性
-        return excuteCodeResponse;
+        return executeCodeResponse;
     }
 
     /**
      * 当程序抛出异常时 直接抛出错误响应
      * @param e
-     * @return {@link ExcuteCodeResponse }
+     * @return {@link ExecuteCodeResponse }
      * @author zhoulm54681
      * @date 2025/02/03
      */
-    private ExcuteCodeResponse getErrorExcuteCodeResponse(Throwable e) {
-        ExcuteCodeResponse excuteCodeResponse = new ExcuteCodeResponse();
+    private ExecuteCodeResponse getErrorExcuteCodeResponse(Throwable e) {
+        ExecuteCodeResponse executeCodeResponse = new ExecuteCodeResponse();
         // 表示代码沙箱执行错误，编译错误
-        excuteCodeResponse.setStatus("2");
-        excuteCodeResponse.setOutputList(new ArrayList<>());
-        excuteCodeResponse.setMessage(e.getMessage());
-        excuteCodeResponse.setJudgeInfo(new JudgeInfo());
-        return excuteCodeResponse;
+        executeCodeResponse.setStatus("2");
+        executeCodeResponse.setOutputList(new ArrayList<>());
+        executeCodeResponse.setMessage(e.getMessage());
+        executeCodeResponse.setJudgeInfo(new JudgeInfo());
+        return executeCodeResponse;
     }
 }

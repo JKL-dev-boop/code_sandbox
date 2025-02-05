@@ -1,7 +1,7 @@
 package com.butcher.zojcodesandbox;
 
-import com.butcher.zojcodesandbox.model.ExcuteCodeRequest;
-import com.butcher.zojcodesandbox.model.ExcuteCodeResponse;
+import com.butcher.zojcodesandbox.model.ExecuteCodeRequest;
+import com.butcher.zojcodesandbox.model.ExecuteCodeResponse;
 
 /**
  * 代码沙箱接口定义
@@ -12,8 +12,8 @@ public interface CodeSandbox {
     /**
      * 执行代码
      *
-     * @param excuteCodeRequest
+     * @param executeCodeRequest
      * @return
      */
-    ExcuteCodeResponse excuteCode(ExcuteCodeRequest excuteCodeRequest);
+    ExecuteCodeResponse executeCode(ExecuteCodeRequest executeCodeRequest);
 }
