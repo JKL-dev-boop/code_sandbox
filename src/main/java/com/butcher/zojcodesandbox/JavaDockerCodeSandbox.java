@@ -15,31 +15,30 @@ import com.butcher.zojcodesandbox.model.ExecuteCodeResponse;
 import com.butcher.zojcodesandbox.model.ExecuteMessage;
 import com.butcher.zojcodesandbox.model.JudgeInfo;
 import com.butcher.zojcodesandbox.utils.ProcessUtils;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.util.StopWatch;
 
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 
+@Slf4j
 public class JavaDockerCodeSandbox implements CodeSandbox {
 
     private static final String GLOBAL_CODE_DIR_NAME = "tmpCode";
 
     private static final String GLOBAL_JAVA_CLASS_NAME = "Main.java";
 
-    private static final long TIME_OUT = 5000L;
+    private static final long TIME_OUT = 1000*100L;
 
     private static final String SECURITY_MANAGER_PATH = "C:\\code\\zoj-code-sandbox\\src\\main\\resources\\security";
 
     private static final String SECURITY_MANAGER_CLASS_NAME = "MySecurityManager";
 
-    private static final Boolean FIRST_INIT = true;
+    private static final Boolean FIRST_INIT = false;
 
     public static void main(String[] args) {
         JavaDockerCodeSandbox javaNativeCodeSandbox = new JavaDockerCodeSandbox();
@@ -91,7 +90,7 @@ public class JavaDockerCodeSandbox implements CodeSandbox {
         DockerClient dockerClient = DockerClientBuilder.getInstance().build();
 
         // 拉取镜像
-        String image = "openjdk:8-alpine";
+        String image = "docker.1ms.run/library/openjdk:8-alpine";
         if (FIRST_INIT) {
             PullImageCmd pullImageCmd = dockerClient.pullImageCmd(image);
             PullImageResultCallback pullImageResultCallback = new PullImageResultCallback() {
@@ -111,7 +110,7 @@ public class JavaDockerCodeSandbox implements CodeSandbox {
             }
         }
 
-        System.out.println("下载完成");
+        log.info("下载完成");
 
         // 创建容器
 
@@ -120,7 +119,7 @@ public class JavaDockerCodeSandbox implements CodeSandbox {
         hostConfig.withMemory(100 * 1000 * 1000L);
         hostConfig.withMemorySwap(0L);
         hostConfig.withCpuCount(1L);
-        hostConfig.withSecurityOpts(Arrays.asList("seccomp=安全管理配置字符串"));
+//        hostConfig.withSecurityOpts(Collections.singletonList("seccomp=安全管理配置字符串"));
         hostConfig.setBinds(new Bind(userCodeParentPath, new Volume("/app")));
         CreateContainerResponse createContainerResponse = containerCmd
                 .withHostConfig(hostConfig)
@@ -140,6 +139,7 @@ public class JavaDockerCodeSandbox implements CodeSandbox {
         // docker exec keen_blackwell java -cp /app Main 1 3
         // 执行命令并获取结果
         List<ExecuteMessage> executeMessageList = new ArrayList<>();
+        final long[] maxMemory = {0L};
         for (String inputArgs : inputList) {
             StopWatch stopWatch = new StopWatch();
             String[] inputArgsArray = inputArgs.split(" ");
@@ -179,9 +179,13 @@ public class JavaDockerCodeSandbox implements CodeSandbox {
                     }
                     super.onNext(frame);
                 }
-            };
 
-            final long[] maxMemory = {0L};
+                @Override
+                public void onError(Throwable throwable) {
+                    System.err.println("执行过程中出现错误: " + throwable.getMessage());
+                    super.onError(throwable);
+                }
+            };
 
             // 获取占用的内存
             StatsCmd statsCmd = dockerClient.statsCmd(containerId);
@@ -205,7 +209,7 @@ public class JavaDockerCodeSandbox implements CodeSandbox {
 
                 @Override
                 public void onError(Throwable throwable) {
-
+                    System.out.println("获取内存占用异常" + throwable.getMessage());
                 }
 
                 @Override
@@ -218,7 +222,7 @@ public class JavaDockerCodeSandbox implements CodeSandbox {
                 stopWatch.start();
                 dockerClient.execStartCmd(execId)
                         .exec(execStartResultCallback)
-                        .awaitCompletion(TIME_OUT, TimeUnit.MICROSECONDS);
+                        .awaitCompletion(TIME_OUT, TimeUnit.MILLISECONDS);
                 stopWatch.stop();
                 time = stopWatch.getLastTaskTimeMillis();
                 statsCmd.close();
@@ -254,20 +258,25 @@ public class JavaDockerCodeSandbox implements CodeSandbox {
         // 正常运行完成
         if (outputList.size() == executeMessageList.size()) {
             executeCodeResponse.setStatus("1");
+            System.out.println("正常运行完成");
+            System.out.println("运行结果" + outputList);
+        }else {
+            executeCodeResponse.setStatus("2");
+            System.out.println("程序执行超时");
         }
         executeCodeResponse.setOutputList(outputList);
         JudgeInfo judgeInfo = new JudgeInfo();
         judgeInfo.setTime(maxTime);
         // 要借助第三方库来获取内存占用，非常麻烦，此处不做实现
-//        judgeInfo.setMemory();
+        judgeInfo.setMemory(maxMemory[0]);
 
         executeCodeResponse.setJudgeInfo(judgeInfo);
 
 //        5. 文件清理
-        if (userCodeFile.getParentFile() != null) {
-            boolean del = FileUtil.del(userCodeParentPath);
-            System.out.println("删除" + (del ? "成功" : "失败"));
-        }
+//        if (userCodeFile.getParentFile() != null) {
+//            boolean del = FileUtil.del(userCodeParentPath);
+//            System.out.println("删除" + (del ? "成功" : "失败") + " " + userCodeParentPath);
+//        }
         return executeCodeResponse;
     }
 
@@ -284,6 +293,7 @@ public class JavaDockerCodeSandbox implements CodeSandbox {
         // 表示代码沙箱错误
         executeCodeResponse.setStatus("2");
         executeCodeResponse.setJudgeInfo(new JudgeInfo());
+        System.out.println("获取错误响应");
         return executeCodeResponse;
     }
 }

@@ -1,4 +1,3 @@
-//写一个简单的 A+B 程序
 public class Main {
     public static void main(String[] args) {
         int a = Integer.parseInt(args[0]);
